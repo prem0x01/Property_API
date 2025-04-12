@@ -157,3 +157,53 @@ func createTables() {
 	fmt.Println("\033[35m[-] Table Created Successfully\033[0m")
 
 }
+
+func userHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		viewUser(w, r)
+	case "POST":
+		addUser(w, r)
+	case "PUT":
+		updateUser(w, r)
+	case "DELETE":
+		deleteUser(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+
+}
+
+func propertyHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		viewProperties(w, r)
+	case "POST":
+		addProperty(w, r)
+	case "PUT":
+		updateProperty(w, r)
+	case "DELETE":
+		deleteProperty(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+
+}
+
+func appointmentHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		viewAppointment(w, r)
+	case "POST":
+		addAppointment(w, r)
+	case "PUT":
+		updateAppointment(w, r)
+	case "DELETE":
+		deleteAppointment(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// now I have to create this crud functions , 12 APR 2025 4:47
+// Rest i will do tomorowwwwwwwwww...
