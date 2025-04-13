@@ -2,11 +2,14 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
+	"strconv"
 	"sync"
 
 	"github.com/joho/godotenv"
@@ -26,6 +29,7 @@ type Property struct {
 
 type User struct {
 	UserID     int    `json:"user_id"`
+	Name       string `json:"name"`
 	Email      string `json:"email"`
 	Mobile     string `json:"mobile"`
 	Password   string `json:"password"`
@@ -101,7 +105,6 @@ func connectDB() {
 
 	fmt.Println("\033[35m[-] Connected to database successfully!\033[0m")
 
-	// create tables
 	createTables()
 }
 func createTables() {
@@ -109,6 +112,7 @@ func createTables() {
 	createUserTable := `
 	CREATE TABLE users (
     	user_id SERIAL PRIMARY KEY,  -- Auto-incrementing primary key
+		name TEXT NOT NULL
     	email VARCHAR(255) UNIQUE NOT NULL,  -- Unique email (required)
     	mobile VARCHAR(15) UNIQUE NOT NULL,  -- Mobile number (required)
     	password TEXT NOT NULL,  -- Hashed password storage
@@ -207,3 +211,139 @@ func appointmentHandler(w http.ResponseWriter, r *http.Request) {
 
 // now I have to create this crud functions , 12 APR 2025 4:47
 // Rest i will do tomorowwwwwwwwww...
+
+func isValidAadhaar(aadhaar string) bool {
+	re := regexp.MustCompile(`^[0-9]{12}$`)
+	return re.MatchString(aadhaar)
+}
+
+func isValidMobile(mobile string) bool {
+	re := regexp.MustCompile(`[0-9]{10}$`)
+	return re.MatchString(mobile)
+}
+
+func viewUser(w http.ResponseWriter, r *http.Request) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	rows, err := db.Query("SELECT user_id, name, email, mobile, aadhaar, u_address FROM users")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var result []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Mobile, &u.Aadhaar, &u.UAddress); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		result = append(result, u)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func addUser(w http.ResponseWriter,  r *http.Request) {
+	var u User
+	err := json.NewDecoder(r.Body).Decode(&u)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if !isValidAadhaar(u.Aadhaar) || !isValidMobile(u.Mobile) {
+		http.Error(w, "Invalid Addhar or Mobile number format", http.StatusBadRequest)
+		return
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	stmt, err := db.Query("INSERT INTO users(name, email, mobile , password, aadhaar, u_address, upf_img_path ) VALUES(?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(u.Name, u.Email, u.Mobile, u.Password, u.Aadhaar, u.UAddress, u.UPFImgPath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	id, err := res.LastInsertId()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	u.UserID = int(id)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(u)
+}
+
+
+func updateUser(w http.ResponseWriter, r *http.Request) {
+	var u User
+	err := json.NewDecoder(r.Body).Decode(&u)
+	if err != nil {
+		http..Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if !isValidAadhaar(u.UAddress) || !isValidMobile(u.Mobile) {
+		http.Error(w, "Invalid Aadhaar or Mobile number format", http.StatusBadRequest)
+		return
+	}
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	stmt, err := db.Prepare("UPDATE users SET name=?, email=?, mobile=?, password=?, aadhaar=?, u_address=?, upf_img_path=? WHERE user_id=?")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(u.Name, u.Email, u.Mobile, u.Password, u.Aadhaar, u.UAddress, u.UPFImgPath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewDecoder(w).Encode(u)
+}
+
+func deleteUser(w http.ResponseWriter, r *http.Request){
+	idStr := r.URL.Query().Get("user_id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	stmt, err := db.Prepare("DELETE * FROM users WHERE user_id = ?" )
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = stmt.Exec(user_id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// Today i wrote all users CRUD functions . 13 APR 2025 5.00
