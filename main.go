@@ -6,19 +6,16 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatalf("\033[31m[-] Could not load .env file: %v\n\033[0m", err)
+	db, err := config.ConnectDB()
+	if err != nil {
+		log.Fatalf("\nFailed to connect to the database: %v", err)
 	}
-
-	db := config.InitDB()
 	defer db.Close()
 
-	config.CreateTables(db)
+	config.CreateTables()
 
 	handlers.InitUserHandler(db)
 	handlers.InitPropertyHandler(db)

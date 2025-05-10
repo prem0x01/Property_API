@@ -4,19 +4,17 @@ import (
 	"Property_App/models"
 	"Property_App/utils"
 	"database/sql"
-	"sync"
-)
-
-var (
-	db *sql.DB
-	mutex = &sync.Mutex{}
+	"encoding/json"
+	"net/http"
+	"strconv"
+	//"sync"
 )
 
 func InitUserHandler(database *sql.DB) {
 	db = database
 }
 
-func userHandler(w http.ResponseWriter, r *http.Request) {
+func UserHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		viewUser(w, r)
@@ -43,9 +41,9 @@ func viewUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var result []User
+	var result []models.User
 	for rows.Next() {
-		var u User
+		var u models.User
 		if err := rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Mobile, &u.Aadhaar, &u.UAddress); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -57,15 +55,15 @@ func viewUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(result)
 }
 
-func addUser(w http.ResponseWriter,  r *http.Request) {
-	var u User
+func addUser(w http.ResponseWriter, r *http.Request) {
+	var u models.User
 	err := json.NewDecoder(r.Body).Decode(&u)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if !isValidAadhaar(u.Aadhaar) || !isValidMobile(u.Mobile) {
+	if !utils.IsValidAadhaar(u.Aadhaar) || !utils.IsValidMobile(u.Mobile) {
 		http.Error(w, "Invalid Addhar or Mobile number format", http.StatusBadRequest)
 		return
 	}
@@ -73,7 +71,7 @@ func addUser(w http.ResponseWriter,  r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Query("INSERT INTO users(name, email, mobile , password, aadhaar, u_address, upf_img_path ) VALUES(?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := db.Prepare("INSERT INTO users(name, email, mobile , password, aadhaar, u_address, upf_img_path ) VALUES(?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -85,7 +83,7 @@ func addUser(w http.ResponseWriter,  r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	id, err := res.LastInsertId()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -97,16 +95,15 @@ func addUser(w http.ResponseWriter,  r *http.Request) {
 	json.NewEncoder(w).Encode(u)
 }
 
-
 func updateUser(w http.ResponseWriter, r *http.Request) {
-	var u User
+	var u models.User
 	err := json.NewDecoder(r.Body).Decode(&u)
 	if err != nil {
-		http..Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if !isValidAadhaar(u.UAddress) || !isValidMobile(u.Mobile) {
+	if !utils.IsValidAadhaar(u.Aadhaar) || !utils.IsValidMobile(u.Mobile) {
 		http.Error(w, "Invalid Aadhaar or Mobile number format", http.StatusBadRequest)
 		return
 	}
@@ -127,12 +124,12 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewDecoder(w).Encode(u)
+	json.NewEncoder(w).Encode(u)
 }
 
-func deleteUser(w http.ResponseWriter, r *http.Request){
+func deleteUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("user_id")
-	id, err := strconv.Atoi(idStr)
+	_, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
@@ -141,13 +138,13 @@ func deleteUser(w http.ResponseWriter, r *http.Request){
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Prepare("DELETE * FROM users WHERE user_id = ?" )
+	stmt, err := db.Prepare("DELETE * FROM users WHERE user_id = ?")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	_, err = stmt.Exec(user_id)
+	_, err = stmt.Exec(idStr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -155,4 +152,3 @@ func deleteUser(w http.ResponseWriter, r *http.Request){
 
 	w.WriteHeader(http.StatusNoContent)
 }
-

@@ -2,9 +2,9 @@ package utils
 
 import "regexp"
 
-func IsValidAadhaar(aadhaar string) bool {
+func IsValidAadhaar(aadhaar int) bool {
 	re := regexp.MustCompile(`^[0-9]{12}$`)
-	return re.MatchString(aadhaar)
+	return re.MatchString(string(aadhaar))
 }
 
 func IsValidMobile(mobile string) bool {
