@@ -15,7 +15,7 @@ func main() {
 	}
 	defer db.Close()
 
-	config.CreateTables()
+	//config.CreateTables()
 
 	handlers.InitUserHandler(db)
 	handlers.InitPropertyHandler(db)

@@ -1,6 +1,8 @@
 package utils
 
-import "regexp"
+import (
+	"regexp"
+)
 
 func IsValidAadhaar(aadhaar int) bool {
 	re := regexp.MustCompile(`^[0-9]{12}$`)

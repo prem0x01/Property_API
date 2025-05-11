@@ -7,9 +7,8 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
-
-var db *sql.DB
 
 func ConnectDB() (*sql.DB, error) {
 	err := godotenv.Load()
@@ -28,7 +27,7 @@ func ConnectDB() (*sql.DB, error) {
 	if err != nil {
 		log.Fatalf("\033[31m[-] Error opening database: %v\n\033[0m", err)
 	}
-	defer db.Close()
+	//defer db.Close()  causing race condition , its closing the connection befor running CreateTables(), place db.Close in main.
 
 	err = db.Ping()
 	if err != nil {
@@ -37,27 +36,27 @@ func ConnectDB() (*sql.DB, error) {
 
 	fmt.Println("\033[35m[-] Connected to database successfully!\033[0m")
 
-	CreateTables()
+	createTables(db)
 	return db, nil
 }
-func CreateTables() {
+func createTables(db *sql.DB) {
 
 	createUserTable := `
-	CREATE TABLE users (
+	CREATE TABLE IF NOT EXISTS users (
     	user_id SERIAL PRIMARY KEY,
-		name TEXT NOT NULL
-    	email VARCHAR(255) UNIQUE NOT NULL,  
-    	mobile VARCHAR(15) UNIQUE NOT NULL,  
-    	password TEXT NOT NULL, 
-    	aadhaar BIGINT UNIQUE NOT NULL,  
-		u_address TEXT, 
-    	upf_img_path TEXT, 
-    	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  
-    	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  
+    	name TEXT NOT NULL,
+    	email VARCHAR(255) UNIQUE NOT NULL,
+		mobile VARCHAR(15) UNIQUE NOT NULL,
+    	password TEXT NOT NULL,
+    	aadhaar BIGINT UNIQUE NOT NULL,
+    	u_address TEXT,
+    	upf_img_path TEXT,
+    	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
 
 	createPropertyTable := `
-	CREATE TABLE properties (
+	CREATE TABLE IF NOT EXISTS properties (
     	property_id SERIAL PRIMARY KEY,  
     	type VARCHAR(50) NOT NULL,      
     	p_address TEXT NOT NULL,         
@@ -65,11 +64,11 @@ func CreateTables() {
     	map_link TEXT,                   
     	img_path TEXT,                  
     	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP 
+    	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
 
 	createAppointmentTable := `
-	CREATE TABLE appointments (
+	CREATE TABLE IF NOT EXISTS appointments (
     	appointment_id SERIAL PRIMARY KEY, 
     	user_id INT REFERENCES users(user_id) ON DELETE CASCADE, 
     	property_id INT REFERENCES properties(property_id) ON DELETE CASCADE, 
@@ -78,7 +77,7 @@ func CreateTables() {
     	mobile VARCHAR(15) NOT NULL, 
     	address TEXT NOT NULL, 
     	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-    	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP 
+    	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
 
 	if _, err := db.Exec(createUserTable); err != nil {
