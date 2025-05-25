@@ -3,14 +3,10 @@ package handlers
 import (
 	"Property_App/models"
 	"strconv"
-
-	//"Property_App/utils"
-	//"Property_App/config"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
-	//"sync"
 )
 
 func InitPropertyHandler(database *sql.DB) {

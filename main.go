@@ -21,7 +21,6 @@ func main() {
 	handlers.InitPropertyHandler(db)
 	handlers.InitAppointmentHandler(db)
 
-	// serveing static files . thats new thing i leanr about StripPrefix()
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
