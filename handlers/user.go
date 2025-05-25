@@ -4,10 +4,11 @@ import (
 	"Property_App/models"
 	"Property_App/utils"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"strconv"
-	//"sync"
 )
 
 func InitUserHandler(database *sql.DB) {
@@ -31,28 +32,49 @@ func UserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func viewUser(w http.ResponseWriter, r *http.Request) {
+
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		http.Error(w, "User ID required", http.StatusBadRequest)
+		return
+	}
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	rows, err := db.Query("SELECT user_id, name, email, mobile, aadhaar, u_address FROM users")
+	rows, err := db.Query(`SELECT 
+        u.user_id, u.name, u.email, u.mobile, u.aadhaar, u.u_address, u.upf_img,
+        p.property_id, p.type, p.p_address, p.prize, p.map_link, p.img
+        FROM users u
+        LEFT JOIN properties p ON u.user_id = p.user_id
+        WHERE u.user_id = $1`, userID)
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	var result []models.User
+	var user models.User
+	var properties []models.Property
+	var imageData []byte
 	for rows.Next() {
-		var u models.User
-		if err := rows.Scan(&u.UserID, &u.Name, &u.Email, &u.Mobile, &u.Aadhaar, &u.UAddress); err != nil {
+		var property models.Property
+		if err := rows.Scan(&user.UserID, &user.Name, &user.Email, &user.Mobile, &user.Aadhaar, &user.UAddress, &imageData,
+			&property.PropertyID, &property.Type, &property.PAddress, &property.Prize, &property.MapLink, &property.Img); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		result = append(result, u)
+
+		user.UPFImg = []byte(base64.StdEncoding.EncodeToString(imageData)) // conv BYTEA to base64
+		if property.PropertyID != 0 {
+			properties = append(properties, property)
+		}
 	}
 
+	user.Properties = properties
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	json.NewEncoder(w).Encode(user)
 }
 
 func addUser(w http.ResponseWriter, r *http.Request) {
@@ -63,6 +85,33 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = r.ParseMultipartForm(10 << 20) // Max 10MB file size
+	if err != nil {
+		http.Error(w, "File to large", http.StatusBadRequest)
+		return
+	}
+
+	file, _, err := r.FormFile("upf_img") // Get file from request
+	if err != nil {
+		http.Error(w, "Error retrieving file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	fileBytes, err := ioutil.ReadAll(file) // read file as bytes
+	if err != nil {
+		http.Error(w, "Error reading file", http.StatusInternalServerError)
+		return
+	}
+
+	u.Name = r.FormValue("name")
+	u.Email = r.FormValue("email")
+	u.Mobile = r.FormValue("mobile")
+	u.Password = r.FormValue("password")
+	u.Aadhaar, _ = strconv.ParseInt(r.FormValue("aadhaar"), 10, 64)
+	u.UAddress = r.FormValue("u_address")
+	u.UPFImg = fileBytes
+
 	if !utils.IsValidAadhaar(u.Aadhaar) || !utils.IsValidMobile(u.Mobile) {
 		http.Error(w, "Invalid Addhar or Mobile number format", http.StatusBadRequest)
 		return
@@ -71,14 +120,14 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Prepare("INSERT INTO users(name, email, mobile , password, aadhaar, u_address, upf_img_path ) VALUES(?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := db.Prepare("INSERT INTO users(name, email, mobile , password, aadhaar, u_address, upf_img ) VALUES(?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(u.Name, u.Email, u.Mobile, u.Password, u.Aadhaar, u.UAddress, u.UPFImgPath)
+	res, err := stmt.Exec(u.Name, u.Email, u.Mobile, u.Password, u.Aadhaar, u.UAddress, u.UPFImg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -110,14 +159,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Prepare("UPDATE users SET name=?, email=?, mobile=?, password=?, aadhaar=?, u_address=?, upf_img_path=? WHERE user_id=?")
+	stmt, err := db.Prepare("UPDATE users SET name=?, email=?, mobile=?, password=?, aadhaar=?, u_address=?, upf_img=? WHERE user_id=?")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(u.Name, u.Email, u.Mobile, u.Password, u.Aadhaar, u.UAddress, u.UPFImgPath)
+	_, err = stmt.Exec(u.Name, u.Email, u.Mobile, u.Password, u.Aadhaar, u.UAddress, u.UPFImg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

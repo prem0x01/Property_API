@@ -3,9 +3,11 @@ package handlers
 import (
 	"Property_App/models"
 	"strconv"
+
 	//"Property_App/utils"
 	//"Property_App/config"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	//"sync"
@@ -32,29 +34,52 @@ func PropertyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func viewProperties(w http.ResponseWriter, r *http.Request) {
-	mutex.Lock()
-	defer mutex.Unlock()
+	rows, err := db.Query(`SELECT 
+        p.property_id, p.type, p.p_address, p.prize, p.map_link, p.img_path, p.user_id,
+        u.name, u.email
+        FROM properties p
+        JOIN users u ON p.user_id = u.user_id`)
 
-	rows, err := db.Query("SELECT property_id, type, p_address, prize, map_link, img_path FROM properties")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	var properties []models.Property
+	var properties []struct {
+		Property  models.Property `json:"property"`
+		UserName  string          `json:"user_name"`
+		UserEmail string          `json:"user_email"`
+	}
+
 	for rows.Next() {
-		var p models.Property
-		if err := rows.Scan(&p.PropertyID, &p.Type, &p.PAddress, &p.Prize, &p.MapLink, &p.ImgPath); err != nil {
+		var property models.Property
+		var imageData []byte
+		var userName, userEmail string
+
+		if err := rows.Scan(&property.PropertyID, &property.Type, &property.PAddress, &property.Prize, &property.MapLink, &imageData, &property.UserID,
+			&userName, &userEmail); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		properties = append(properties, p)
+
+		// Convert `BYTEA` image to Base64
+		property.Img = []byte(base64.StdEncoding.EncodeToString(imageData))
+
+		properties = append(properties, struct {
+			Property  models.Property `json:"property"`
+			UserName  string          `json:"user_name"`
+			UserEmail string          `json:"user_email"`
+		}{
+			Property:  property,
+			UserName:  userName,
+			UserEmail: userEmail,
+		})
 	}
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(properties)
-
 }
-
 func addProperty(w http.ResponseWriter, r *http.Request) {
 	var p models.Property
 	err := json.NewDecoder(r.Body).Decode(&p)
@@ -66,14 +91,14 @@ func addProperty(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Prepare("INSERT INTO properties(type ,p_address, prize, map_link, img_path) VALUES(?, ?, ?, ?, ?)")
+	stmt, err := db.Prepare("INSERT INTO properties(type ,p_address, prize, map_link, img) VALUES(?, ?, ?, ?, ?)")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(p.Type, p.PAddress, p.Prize, p.MapLink, p.ImgPath)
+	res, err := stmt.Exec(p.Type, p.PAddress, p.Prize, p.MapLink, p.Img)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -102,14 +127,14 @@ func updateProperty(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Prepare("UPDATE properties SET type=?, p_address=?, prize=?, map_link=?, img_path=? WHERE property_id=?")
+	stmt, err := db.Prepare("UPDATE properties SET type=?, p_address=?, prize=?, map_link=?, img=? WHERE property_id=?")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(p.Type, p.PAddress, p.Prize, p.MapLink, p.ImgPath)
+	_, err = stmt.Exec(p.Type, p.PAddress, p.Prize, p.MapLink, p.Img)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

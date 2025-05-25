@@ -4,7 +4,7 @@ import (
 	"regexp"
 )
 
-func IsValidAadhaar(aadhaar int) bool {
+func IsValidAadhaar(aadhaar int64) bool {
 	re := regexp.MustCompile(`^[0-9]{12}$`)
 	return re.MatchString(string(aadhaar))
 }

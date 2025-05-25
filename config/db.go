@@ -42,7 +42,7 @@ func ConnectDB() (*sql.DB, error) {
 func createTables(db *sql.DB) {
 
 	createUserTable := `
-	CREATE TABLE IF NOT EXISTS users (
+	CREATE TABLE IF NOT EXISTS user (
     	user_id SERIAL PRIMARY KEY,
     	name TEXT NOT NULL,
     	email VARCHAR(255) UNIQUE NOT NULL,
@@ -50,7 +50,7 @@ func createTables(db *sql.DB) {
     	password TEXT NOT NULL,
     	aadhaar BIGINT UNIQUE NOT NULL,
     	u_address TEXT,
-    	upf_img_path TEXT,
+    	upf_img BYTEA,
     	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
@@ -62,7 +62,7 @@ func createTables(db *sql.DB) {
     	p_address TEXT NOT NULL,         
     	prize DECIMAL(12,2) NOT NULL,    
     	map_link TEXT,                   
-    	img_path TEXT,                  
+    	img BYTEA,                  
     	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`

@@ -6,5 +6,7 @@ type Property struct {
 	PAddress   string  `json:"p_address"`
 	Prize      float64 `json:"prize"`
 	MapLink    string  `json:"map_link"`
-	ImgPath    string  `json:"img_path"`
+	Img        []byte  `json:"img_path"`
+	CreatedAt  string  `json:"created_at"`
+	UserID     int     `json:"user_id"`
 }
