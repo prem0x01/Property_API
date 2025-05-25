@@ -1,10 +1,9 @@
 package handlers
 
 import (
-	//"Property_App/config"
 	"Property_App/models"
-	//"Property_App/utils"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -39,25 +38,57 @@ func viewAppointment(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	rows, err := db.Query("SELECT user_id, appointment_id, property_id, time, date, mobile, address FROM appointments")
+	rows, err := db.Query(`SELECT 
+		a.appointment_id, a.time, a.date, a.mobile, a.address, u.user_id, u.name, u.email,
+		p.property_id, p.type, p.p_address, p.prize, p.map_link, p.image
+		FROM appointments a
+		JOIN users u ON a.user_id = u.user_id
+		JOIN properties p ON a.property_id = p.property_id`)
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	var result []models.Appointment
+	var appointments []struct {
+		Appointment models.Appointment `json:"appointment"`
+		UserName    string             `json:"user_name"`
+		UserEmail   string             `json:"user_email"`
+		Property    models.Property    `json:"property"`
+	}
+
 	for rows.Next() {
 		var a models.Appointment
-		if err := rows.Scan(&a.UserID, &a.AppointmentID, &a.PropertyID, &a.Time, &a.Date, &a.Mobile, &a.Address); err != nil {
+		var p models.Property
+		var imageData []byte
+		var userName, userEmail string
+
+		if err := rows.Scan(&a.AppointmentID, &a.Time, &a.Date, &a.Mobile, &a.Address,
+			&a.UserID, &userName, &userEmail,
+			&p.PropertyID, &p.Type, &p.PAddress, &p.Prize, &p.MapLink, &imageData); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		result = append(result, a)
+
+		p.Img = []byte(base64.StdEncoding.EncodeToString(imageData))
+
+		appointments = append(appointments, struct {
+			Appointment models.Appointment `json:"appointment"`
+			UserName    string             `json:"user_name"`
+			UserEmail   string             `json:"user_email"`
+			Property    models.Property    `json:"property"`
+		}{
+			Appointment: a,
+			UserName:    userName,
+			UserEmail:   userEmail,
+			Property:    p,
+		})
+
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	json.NewEncoder(w).Encode(appointments)
 }
 
 func addAppointment(w http.ResponseWriter, r *http.Request) {
