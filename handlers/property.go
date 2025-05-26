@@ -76,6 +76,9 @@ func viewProperties(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(properties)
 }
+
+
+
 func addProperty(w http.ResponseWriter, r *http.Request) {
 	var p models.Property
 	err := json.NewDecoder(r.Body).Decode(&p)
@@ -87,26 +90,19 @@ func addProperty(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Prepare("INSERT INTO properties(type ,p_address, prize, map_link, img) VALUES(?, ?, ?, ?, ?)")
+	stmt,a err := db.Prepare("INSERT INTO properties(user_id, type, p_address, prize, map_link, img) VALUES(?, ?, ?, ?, ?, ?) RETURNING property_id")
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(p.Type, p.PAddress, p.Prize, p.MapLink, p.Img)
+	err = stmt.QueryRow(p.UserID, p.Type, p.PAddress, p.Prize, p.MapLink, p.Img).Scan(&p.PropertyID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	id, err := res.LastInsertId()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	p.PropertyID = int(id)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(p)
@@ -120,6 +116,11 @@ func updateProperty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if p.PropertyID == 0 {
+		http.Error(w, "Property ID is required", http.StatusBadRequest)
+		return
+	}
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -130,19 +131,29 @@ func updateProperty(w http.ResponseWriter, r *http.Request) {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(p.Type, p.PAddress, p.Prize, p.MapLink, p.Img)
+	result, err := stmt.Exec(p.Type, p.PAddress, p.Prize, p.MapLink, p.Img, p.PropertyID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		http.Error(w, "Error checking update status", http.StatusInternalServerError)
+		return
+	}
+	
+	if rowsAffected == 0 {
+		http.Error(w, "No property found with the given IP", http.StatusNotFound)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(p)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Property updated successfully"})
 }
 
 func deleteProperty(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("property_id")
-	_, err := strconv.Atoi(idStr)
+	propertyID, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Invalid property ID", http.StatusBadRequest)
 		return
@@ -151,15 +162,27 @@ func deleteProperty(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Prepare("DELETE * FROM properties WHERE property_id = ?")
+	stmt, err := db.Prepare("DELETE FROM properties WHERE property_id = ?")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer stmt.Close()
+
+	result, err = stmt.Exec(propertyID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	_, err = stmt.Exec(idStr)
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error checking delete status", http.StatusInternalServerError)
+		return
+	}
+
+	if rowsAffected == 0 {
+		http.Error(w, "No property found with the given ID", http.StatusNotFound)
 		return
 	}
 

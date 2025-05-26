@@ -102,26 +102,19 @@ func addAppointment(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Prepare("INSERT INTO appointments(user_id, appointment_id, property_id, time, date, mobile, address) VALUES(?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := db.Prepare("INSERT INTO appointments(user_id, property_id, time, date, mobile, address) VALUES(?, ?, ?, ?, ?, ?) RETURNING appointment_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(&a.UserID, &a.AppointmentID, &a.PropertyID, &a.Time, &a.Date, &a.Mobile, &a.Address)
+	err = stmt.QueryRow(a.UserID, a.PropertyID, a.Time, a.Date, a.Mobile, a.Address).Scan(&a.AppointmentID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	id, err := res.LastInsertId()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	a.PropertyID = int(id)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(a)
 }
@@ -131,6 +124,12 @@ func updateAppointment(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&a)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Ensure appointment_id is provided
+	if a.AppointmentID == 0 {
+		http.Error(w, "Appointment ID is required", http.StatusBadRequest)
 		return
 	}
 
@@ -144,19 +143,30 @@ func updateAppointment(w http.ResponseWriter, r *http.Request) {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(a.Time, a.Date, a.Mobile, a.Address)
+	res, err := stmt.Exec(a.Time, a.Date, a.Mobile, a.Address, a.AppointmentID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		http.Error(w, "Error checking update status", http.StatusInternalServerError)
+		return
+	}
+
+	if rowsAffected == 0 {
+		http.Error(w, "No appointment found with the given ID", http.StatusNotFound)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(a)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Appointment updated successfully"})
 }
 
 func deleteAppointment(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("appointment_id")
-	_, err := strconv.Atoi(idStr)
+	appointmentID, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Invalid appointment ID", http.StatusBadRequest)
 		return
@@ -165,17 +175,28 @@ func deleteAppointment(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Prepare("DELETE * FROM appointments WHERE appointment_id = ?")
+	stmt, err := db.Prepare("DELETE FROM appointments WHERE appointment_id = ?")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(appointmentID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	_, err = stmt.Exec(idStr)
+	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error checking delete status", http.StatusInternalServerError)
 		return
 	}
 
+	if rowsAffected == 0 {
+		http.Error(w, "No appointment found with the given ID", http.StatusNotFound)
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
