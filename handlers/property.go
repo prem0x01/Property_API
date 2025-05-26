@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	"Property_App/config"
 	"Property_App/models"
-	"strconv"
+	"context"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"strconv"
+
+	"github.com/sirupsen/logrus"
 )
 
 func InitPropertyHandler(database *sql.DB) {
@@ -29,54 +33,86 @@ func PropertyHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+import (
+    "context"
+    "encoding/json"
+    "net/http"
+    "Property_App/config"
+    "Property_App/models"
+    "database/sql"
+    "encoding/base64"
+    "time"
+)
+
 func viewProperties(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query(`SELECT 
+    ctx := context.Background()
+
+	config.Logger.Info("Checking Redis cache for properties")
+
+
+    cachedProperties, err := config.RedisClient.Get(ctx, "properties").Result()
+    if err == nil {
+		config.Logger.Info("Serving properties from Redis cache")
+        w.Header().Set("Content-Type", "application/json")
+        w.Write([]byte(cachedProperties)) 
+        return
+    }
+
+	config.Logger.Warn("Cache miss, fectcing properties from database")
+
+    rows, err := db.Query(`SELECT  
         p.property_id, p.type, p.p_address, p.prize, p.map_link, p.img_path, p.user_id,
         u.name, u.email
         FROM properties p
         JOIN users u ON p.user_id = u.user_id`)
+    if err != nil {
+		config.Logger.Error("Failed to fetch properties from database", logrus.Fields{"error": err})
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    defer rows.Close()
 
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
+    var properties []struct {
+        Property  models.Property `json:"property"`
+        UserName  string          `json:"user_name"`
+        UserEmail string          `json:"user_email"`
+    }
 
-	var properties []struct {
-		Property  models.Property `json:"property"`
-		UserName  string          `json:"user_name"`
-		UserEmail string          `json:"user_email"`
-	}
+    for rows.Next() {
+        var property models.Property
+        var imageData []byte
+        var userName, userEmail string
 
-	for rows.Next() {
-		var property models.Property
-		var imageData []byte
-		var userName, userEmail string
+        if err := rows.Scan(&property.PropertyID, &property.Type, &property.PAddress, &property.Prize, &property.MapLink, &imageData, &property.UserID,
+            &userName, &userEmail); err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
 
-		if err := rows.Scan(&property.PropertyID, &property.Type, &property.PAddress, &property.Prize, &property.MapLink, &imageData, &property.UserID,
-			&userName, &userEmail); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 
-		// Convert `BYTEA` image to Base64
-		property.Img = []byte(base64.StdEncoding.EncodeToString(imageData))
+        property.Img = []byte(base64.StdEncoding.EncodeToString(imageData))
 
-		properties = append(properties, struct {
-			Property  models.Property `json:"property"`
-			UserName  string          `json:"user_name"`
-			UserEmail string          `json:"user_email"`
-		}{
-			Property:  property,
-			UserName:  userName,
-			UserEmail: userEmail,
-		})
-	}
+        properties = append(properties, struct {
+            Property  models.Property `json:"property"`
+            UserName  string          `json:"user_name"`
+            UserEmail string          `json:"user_email"`
+        }{
+            Property:  property,
+            UserName:  userName,
+            UserEmail: userEmail,
+        })
+    }
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(properties)
+    jsonData, _ := json.Marshal(properties)
+
+	config.Logger.Info("Successfully fetched properties from database, caching in Redis")
+    config.RedisClient.Set(ctx, "properties", string(jsonData), 10*time.Minute)
+
+    w.Header().Set("Content-Type", "application/json")
+    w.Write(jsonData)
+
+	config.Logger.Info("Response sent successfully for properties")
 }
-
 
 
 func addProperty(w http.ResponseWriter, r *http.Request) {

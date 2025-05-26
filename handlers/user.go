@@ -91,14 +91,14 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _, err := r.FormFile("upf_img") // Get file from request
+	file, _, err := r.FormFile("upf_img")
 	if err != nil {
 		http.Error(w, "Error retrieving file", http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
 
-	fileBytes, err := ioutil.ReadAll(file) // read file as bytes
+	fileBytes, err := ioutil.ReadAll(file)
 	if err != nil {
 		http.Error(w, "Error reading file", http.StatusInternalServerError)
 		return
