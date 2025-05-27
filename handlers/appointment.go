@@ -71,7 +71,7 @@ func viewAppointment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		p.Img = []byte(base64.StdEncoding.EncodeToString(imageData))
+		p.Img = base64.StdEncoding.EncodeToString(imageData)
 
 		appointments = append(appointments, struct {
 			Appointment models.Appointment `json:"appointment"`

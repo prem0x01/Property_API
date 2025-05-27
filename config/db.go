@@ -1,7 +1,7 @@
 package config
 
 import (
-	"context"
+	//"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -57,7 +57,7 @@ func ConnectDB() (*sql.DB, error) {
 		DB:       0,
 	})
 
-	_, err = RedisClient.Ping(context.Background()).Result()
+	_, err = RedisClient.Ping().Result()
 	if err != nil {
 		log.Println("\033[31m[-] Error connecting to Redis:\033[0m", err)
 		return nil, err
@@ -71,7 +71,7 @@ func ConnectDB() (*sql.DB, error) {
 func createTables(db *sql.DB) {
 
 	createUserTable := `
-	CREATE TABLE IF NOT EXISTS user (
+	CREATE TABLE IF NOT EXISTS users (
     	user_id SERIAL PRIMARY KEY,
     	name TEXT NOT NULL,
     	email VARCHAR(255) UNIQUE NOT NULL,

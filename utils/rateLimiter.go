@@ -15,7 +15,7 @@ func getLimiter(ip string) *rate.Limiter {
 	defer mu.Unlock()
 
 	if _, exists := clients[ip]; !exists {
-		clients[ip] = rate.NewLimiter(2, 5)
+		clients[ip] = rate.NewLimiter(4, 8)
 	}
 	return clients[ip]
 }

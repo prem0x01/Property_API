@@ -31,6 +31,6 @@ func main() {
 	http.Handle("/appointment", utils.RateLimiter(http.HandlerFunc(handlers.AppointmentHandler)))
 
 	fmt.Println("\033[35m[-] Server running on :9090....\033[0m")
-	log.Fatal(http.ListenAndServe(":9090", nil))
+	log.Fatal(http.ListenAndServe("localhost:9090", nil))
 
 }
