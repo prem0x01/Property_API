@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -32,7 +33,8 @@ func UserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func viewUser(w http.ResponseWriter, r *http.Request) {
-	userID := r.URL.Query().Get("user_id")
+	vars := mux.Vars(r)
+	userID := vars["id"]
 	if userID == "" {
 		http.Error(w, "User ID required", http.StatusBadRequest)
 		return
@@ -73,8 +75,8 @@ func viewUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user.UPFImg = imageData                                          // raw bytes stored in struct but hidden from JSON
-		user.UPFImgBase64 = base64.StdEncoding.EncodeToString(imageData) // base64 string for JSON output
+		user.UPFImg = imageData                                 
+		user.UPFImgBase64 = base64.StdEncoding.EncodeToString(imageData) 
 
 		if property.PropertyID != 0 {
 			properties = append(properties, property)
@@ -150,8 +152,16 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateUser(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	userID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
 	var u models.User
-	err := json.NewDecoder(r.Body).Decode(&u)
+	err = json.NewDecoder(r.Body).Decode(&u)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -179,7 +189,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(u.Name, u.Email, u.Mobile, u.Password, u.Aadhaar, u.UAddress, u.UPFImg, u.UserID)
+	result, err := stmt.Exec(u.Name, u.Email, u.Mobile, u.Password, u.Aadhaar, u.UAddress, u.UPFImg, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -201,7 +211,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteUser(w http.ResponseWriter, r *http.Request) {
-	idStr := r.URL.Query().Get("user_id")
+	vars := mux.Vars(r)
+	idStr := vars["id"]
 	userID, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)

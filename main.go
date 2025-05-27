@@ -5,11 +5,13 @@ import (
 	"Property_App/handlers"
 	"Property_App/utils"
 	"fmt"
+	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 )
 
 func main() {
+	router := mux.NewRouter()
 	config.InitLogger()
 	db, err := config.ConnectDB()
 	if err != nil {
@@ -24,13 +26,18 @@ func main() {
 	handlers.InitAppointmentHandler(db)
 
 	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))
 
-	http.Handle("/user", utils.RateLimiter(http.HandlerFunc(handlers.UserHandler)))
-	http.Handle("/property", utils.RateLimiter(http.HandlerFunc(handlers.PropertyHandler)))
-	http.Handle("/appointment", utils.RateLimiter(http.HandlerFunc(handlers.AppointmentHandler)))
+	router.Handle("/user", utils.RateLimiter(http.HandlerFunc(handlers.UserHandler))).Methods("GET", "POST")
+	router.Handle("/user/{id}", utils.RateLimiter(http.HandlerFunc(handlers.UserHandler))).Methods("DELETE", "PUT")
+   
+   router.Handle("/property", utils.RateLimiter(http.HandlerFunc(handlers.PropertyHandler))).Methods("GET", "POST")
+	router.Handle("/property/{id}", utils.RateLimiter(http.HandlerFunc(handlers.PropertyHandler))).Methods("DELETE", "PUT")
+
+	router.Handle("/appointment", utils.RateLimiter(http.HandlerFunc(handlers.AppointmentHandler))).Methods("GET", "POST")
+	router.Handle("/appointment/{id}", utils.RateLimiter(http.HandlerFunc(handlers.AppointmentHandler))).Methods("DELETE", "PUT")
 
 	fmt.Println("\033[35m[-] Server running on :9090....\033[0m")
-	log.Fatal(http.ListenAndServe("localhost:9090", nil))
+	log.Fatal(http.ListenAndServe("localhost:9090", router))
 
 }

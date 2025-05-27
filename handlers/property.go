@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 )
 
@@ -137,15 +138,18 @@ func addProperty(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateProperty(w http.ResponseWriter, r *http.Request) {
-	var p models.Property
-	err := json.NewDecoder(r.Body).Decode(&p)
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	propertyID, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Invalid property ID", http.StatusBadRequest)
 		return
 	}
 
-	if p.PropertyID == 0 {
-		http.Error(w, "Property ID is required", http.StatusBadRequest)
+	var p models.Property
+	err = json.NewDecoder(r.Body).Decode(&p)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -159,7 +163,7 @@ func updateProperty(w http.ResponseWriter, r *http.Request) {
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(p.Type, p.PAddress, p.Prize, p.MapLink, p.Img, p.PropertyID)
+	result, err := stmt.Exec(p.Type, p.PAddress, p.Prize, p.MapLink, p.Img, propertyID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -172,7 +176,7 @@ func updateProperty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if rowsAffected == 0 {
-		http.Error(w, "No property found with the given IP", http.StatusNotFound)
+		http.Error(w, "No property found with the given ID", http.StatusNotFound)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -180,7 +184,8 @@ func updateProperty(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteProperty(w http.ResponseWriter, r *http.Request) {
-	idStr := r.URL.Query().Get("property_id")
+	vars := mux.Vars(r)
+	idStr := vars["id"]
 	propertyID, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Invalid property ID", http.StatusBadRequest)

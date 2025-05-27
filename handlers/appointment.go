@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+
+	"github.com/gorilla/mux"
 )
 
 var (
@@ -102,7 +104,7 @@ func addAppointment(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Prepare("INSERT INTO appointments(user_id, property_id, time, date, mobile, address) VALUES(?, ?, ?, ?, ?, ?) RETURNING appointment_id")
+	stmt, err := db.Prepare("INSERT INTO appointments(user_id, property_id, time, date, mobile, address) VALUES($1, $2, $3, $4, $5, $6) RETURNING appointment_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -120,30 +122,31 @@ func addAppointment(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateAppointment(w http.ResponseWriter, r *http.Request) {
-	var a models.Appointment
-	err := json.NewDecoder(r.Body).Decode(&a)
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	appointmentID, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Invalid appointment ID", http.StatusBadRequest)
 		return
 	}
-
-	// Ensure appointment_id is provided
-	if a.AppointmentID == 0 {
-		http.Error(w, "Appointment ID is required", http.StatusBadRequest)
+	var a models.Appointment
+	err = json.NewDecoder(r.Body).Decode(&a)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Prepare("UPDATE appointments SET time=?, date=?, mobile=?, address=? WHERE appointment_id=?")
+	stmt, err := db.Prepare("UPDATE appointments SET time=$1, date=$2, mobile=$3, address=$4 WHERE appointment_id=$5")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(a.Time, a.Date, a.Mobile, a.Address, a.AppointmentID)
+	res, err := stmt.Exec(a.Time, a.Date, a.Mobile, a.Address, appointmentID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -165,7 +168,8 @@ func updateAppointment(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteAppointment(w http.ResponseWriter, r *http.Request) {
-	idStr := r.URL.Query().Get("appointment_id")
+	vars := mux.Vars(r)
+	idStr := vars["id"]
 	appointmentID, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Invalid appointment ID", http.StatusBadRequest)

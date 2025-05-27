@@ -73,6 +73,7 @@ func createTables(db *sql.DB) {
 	createUserTable := `
 	CREATE TABLE IF NOT EXISTS users (
     	user_id SERIAL PRIMARY KEY,
+	    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     	name TEXT NOT NULL,
     	email VARCHAR(255) UNIQUE NOT NULL,
 		mobile VARCHAR(15) UNIQUE NOT NULL,
@@ -87,6 +88,7 @@ func createTables(db *sql.DB) {
 	createPropertyTable := `
 	CREATE TABLE IF NOT EXISTS properties (
     	property_id SERIAL PRIMARY KEY,  
+	    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     	type VARCHAR(50) NOT NULL,      
     	p_address TEXT NOT NULL,         
     	prize DECIMAL(12,2) NOT NULL,    
