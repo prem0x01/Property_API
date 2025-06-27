@@ -1,13 +1,14 @@
 package main
 
 import (
-	"Property_App/config"
-	"Property_App/handlers"
-	"Property_App/utils"
 	"fmt"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+
+	"github.com/gorilla/mux"
+	"github.com/prem0x01/propertyAPI/config"
+	"github.com/prem0x01/propertyAPI/handlers"
+	"github.com/prem0x01/propertyAPI/utils"
 )
 
 func main() {
@@ -30,8 +31,8 @@ func main() {
 
 	router.Handle("/user", utils.RateLimiter(http.HandlerFunc(handlers.UserHandler))).Methods("GET", "POST")
 	router.Handle("/user/{id}", utils.RateLimiter(http.HandlerFunc(handlers.UserHandler))).Methods("DELETE", "PUT")
-   
-   router.Handle("/property", utils.RateLimiter(http.HandlerFunc(handlers.PropertyHandler))).Methods("GET", "POST")
+
+	router.Handle("/property", utils.RateLimiter(http.HandlerFunc(handlers.PropertyHandler))).Methods("GET", "POST")
 	router.Handle("/property/{id}", utils.RateLimiter(http.HandlerFunc(handlers.PropertyHandler))).Methods("DELETE", "PUT")
 
 	router.Handle("/appointment", utils.RateLimiter(http.HandlerFunc(handlers.AppointmentHandler))).Methods("GET", "POST")

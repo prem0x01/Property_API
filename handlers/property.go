@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"Property_App/config"
-	"Property_App/models"
 
 	//"context"
 	"database/sql"
@@ -13,6 +11,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/prem0x01/propertyAPI/config"
+	"github.com/prem0x01/propertyAPI/models"
 	"github.com/sirupsen/logrus"
 )
 

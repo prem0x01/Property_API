@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"Property_App/models"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -10,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/mux"
+	"github.com/prem0x01/propertyAPI/models"
 )
 
 var (
@@ -40,7 +40,7 @@ func viewAppointment(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	rows, err := db.Query(`SELECT 
+	rows, err := db.Query(`SELECT
 		a.appointment_id, a.time, a.date, a.mobile, a.address, u.user_id, u.name, u.email,
 		p.property_id, p.type, p.p_address, p.prize, p.map_link, p.image
 		FROM appointments a

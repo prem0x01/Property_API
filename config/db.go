@@ -73,7 +73,6 @@ func createTables(db *sql.DB) {
 	createUserTable := `
 	CREATE TABLE IF NOT EXISTS users (
     	user_id SERIAL PRIMARY KEY,
-	    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     	name TEXT NOT NULL,
     	email VARCHAR(255) UNIQUE NOT NULL,
 		mobile VARCHAR(15) UNIQUE NOT NULL,
@@ -87,27 +86,27 @@ func createTables(db *sql.DB) {
 
 	createPropertyTable := `
 	CREATE TABLE IF NOT EXISTS properties (
-    	property_id SERIAL PRIMARY KEY,  
+    	property_id SERIAL PRIMARY KEY,
 	    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    	type VARCHAR(50) NOT NULL,      
-    	p_address TEXT NOT NULL,         
-    	prize DECIMAL(12,2) NOT NULL,    
-    	map_link TEXT,                   
-    	img BYTEA,                  
+    	type VARCHAR(50) NOT NULL,
+    	p_address TEXT NOT NULL,
+    	prize DECIMAL(12,2) NOT NULL,
+    	map_link TEXT,
+    	img BYTEA,
     	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
 
 	createAppointmentTable := `
 	CREATE TABLE IF NOT EXISTS appointments (
-    	appointment_id SERIAL PRIMARY KEY, 
-    	user_id INT REFERENCES users(user_id) ON DELETE CASCADE, 
-    	property_id INT REFERENCES properties(property_id) ON DELETE CASCADE, 
-    	time TIME NOT NULL, 
-    	date DATE NOT NULL, 
-    	mobile VARCHAR(15) NOT NULL, 
-    	address TEXT NOT NULL, 
-    	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+    	appointment_id SERIAL PRIMARY KEY,
+    	user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    	property_id INT REFERENCES properties(property_id) ON DELETE CASCADE,
+    	time TIME NOT NULL,
+    	date DATE NOT NULL,
+    	mobile VARCHAR(15) NOT NULL,
+    	address TEXT NOT NULL,
+    	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
 

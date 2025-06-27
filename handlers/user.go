@@ -1,15 +1,16 @@
 package handlers
 
 import (
-	"Property_App/models"
-	"Property_App/utils"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/gorilla/mux"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
+
+	"github.com/gorilla/mux"
+	"github.com/prem0x01/propertyAPI/models"
+	"github.com/prem0x01/propertyAPI/utils"
 )
 
 func InitUserHandler(database *sql.DB) {
@@ -50,7 +51,7 @@ func viewUser(w http.ResponseWriter, r *http.Request) {
 	defer mutex.Unlock()
 
 	rows, err := db.Query(`
-		SELECT 
+		SELECT
 			u.user_id, u.name, u.email, u.mobile, u.aadhaar, u.u_address, u.upf_img,
 			p.property_id, p.type, p.p_address, p.prize, p.map_link, p.img
 		FROM users u
@@ -75,8 +76,8 @@ func viewUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user.UPFImg = imageData                                 
-		user.UPFImgBase64 = base64.StdEncoding.EncodeToString(imageData) 
+		user.UPFImg = imageData
+		user.UPFImgBase64 = base64.StdEncoding.EncodeToString(imageData)
 
 		if property.PropertyID != 0 {
 			properties = append(properties, property)
@@ -109,7 +110,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 
 	var fileBytes []byte
 	if file != nil {
-		fileBytes, err = ioutil.ReadAll(file)
+		fileBytes, err = io.ReadAll(file)
 		if err != nil {
 			http.Error(w, "Error reading file", http.StatusInternalServerError)
 			return
@@ -180,8 +181,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	stmt, err := db.Prepare(`UPDATE users 
-		SET name=$1, email=$2, mobile=$3, password=$4, aadhaar=$5, u_address=$6, upf_img=$7 
+	stmt, err := db.Prepare(`UPDATE users
+		SET name=$1, email=$2, mobile=$3, password=$4, aadhaar=$5, u_address=$6, upf_img=$7
 		WHERE user_id=$8`)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
