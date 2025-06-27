@@ -127,6 +127,11 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 	u.UAddress = r.FormValue("u_address")
 	u.UPFImg = fileBytes
 
+	hashPass, err := utils.HashPassword(u.Password)
+	if err != nil {
+		return
+	}
+
 	// Validate Aadhaar and Mobile
 	if !utils.IsValidAadhaar(u.Aadhaar) || !utils.IsValidMobile(u.Mobile) {
 		http.Error(w, "Invalid Aadhaar or Mobile number format", http.StatusBadRequest)
@@ -141,7 +146,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO users (name, email, mobile, password, aadhaar, u_address, upf_img)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING user_id
-	`, u.Name, u.Email, u.Mobile, u.Password, u.Aadhaar, u.UAddress, u.UPFImg).Scan(&u.UserID)
+	`, u.Name, u.Email, u.Mobile, hashPass, u.Aadhaar, u.UAddress, u.UPFImg).Scan(&u.UserID)
 
 	if err != nil {
 		http.Error(w, "Database insert error: "+err.Error(), http.StatusInternalServerError)
